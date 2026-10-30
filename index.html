@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f3e9" />
+    <meta
+      name="description"
+      content="A little North Pole magic: meet Santa, explore the workshop, and send a letter to the North Pole."
+    />
+    <title>Santa's North Pole — A little Christmas magic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body class="is-locked">
+    <canvas class="snowfall" id="snowfall" aria-hidden="true"></canvas>
+
+    <section class="pin-screen" id="pin-screen" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+      <div class="pin-card">
+        <div class="pin-sparkle" aria-hidden="true">✦</div>
+        <a class="brand pin-brand" href="#home" aria-label="Santa's North Pole">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <span class="brand-copy">
+            <span class="brand-name">Santa's <em>North Pole</em></span>
+            <span class="brand-signature">Wellington Atera</span>
+          </span>
+        </a>
+        <p class="pin-eyebrow">A little North Pole magic</p>
+        <h1 id="pin-title">The magic awaits.</h1>
+        <p class="pin-description">Enter your four-digit passcode to come inside.</p>
+        <div class="pin-dots" id="pin-dots" aria-label="0 of 4 digits entered">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <p class="pin-feedback" id="pin-feedback" aria-live="polite">Enter your four-digit passcode</p>
+        <div class="pin-keypad" aria-label="Passcode keypad">
+          <button type="button" data-pin-digit="1" aria-label="1" autofocus>1</button>
+          <button type="button" data-pin-digit="2" aria-label="2">2</button>
+          <button type="button" data-pin-digit="3" aria-label="3">3</button>
+          <button type="button" data-pin-digit="4" aria-label="4">4</button>
+          <button type="button" data-pin-digit="5" aria-label="5">5</button>
+          <button type="button" data-pin-digit="6" aria-label="6">6</button>
+          <button type="button" data-pin-digit="7" aria-label="7">7</button>
+          <button type="button" data-pin-digit="8" aria-label="8">8</button>
+          <button type="button" data-pin-digit="9" aria-label="9">9</button>
+          <button type="button" class="pin-utility" data-pin-action="clear">Clear</button>
+          <button type="button" data-pin-digit="0" aria-label="0">0</button>
+          <button type="button" class="pin-utility" data-pin-action="delete">Delete</button>
+        </div>
+        <p class="pin-hint"><span aria-hidden="true">✧</span> A secret little Christmas invitation</p>
+      </div>
+    </section>
+
+    <div class="announcement">
+      <span class="announcement-star" aria-hidden="true">✳</span>
+      The North Pole is getting ready for Christmas
+      <span class="announcement-star" aria-hidden="true">✳</span>
+    </div>
+
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="Santa's North Pole home">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span class="brand-copy">
+          <span class="brand-name">Santa's <em>North Pole</em></span>
+          <span class="brand-signature">Wellington Atera</span>
+        </span>
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+        <span></span><span></span><span class="sr-only">Toggle navigation</span>
+      </button>
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation">
+        <a href="#magic">The magic</a>
+        <a href="#workshop">Workshop</a>
+        <a href="#letter">Write to Santa</a>
+        <a class="nav-cta" href="#letter">Send a letter <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" id="home">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> A little wonder lives here</p>
+          <h1>Believe in<br />the <span>magic.</span></h1>
+          <p class="hero-intro">
+            Somewhere beyond the snowy pines, a workshop is glowing and a certain
+            someone is making his list. Come on in.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-red" href="#magic">Explore the North Pole <span aria-hidden="true">→</span></a>
+            <a class="text-link" href="#letter">Send Santa a letter <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="countdown" aria-label="Countdown to Christmas">
+            <span class="countdown-icon" aria-hidden="true">✳</span>
+            <span class="countdown-label">Christmas is in</span>
+            <span class="countdown-number" id="countdown">—</span>
+            <span class="countdown-label">days</span>
+          </div>
+        </div>
+
+        <div class="hero-art" role="img" aria-label="Santa flying over snowy evergreen trees beneath a starry sky">
+          <div class="moon"></div>
+          <span class="star star-one">✦</span>
+          <span class="star star-two">✧</span>
+          <span class="star star-three">✦</span>
+          <span class="star star-four">✧</span>
+          <span class="star star-five">·</span>
+          <div class="hill hill-back"></div>
+          <div class="hill hill-front"></div>
+          <div class="pine pine-one"><i></i><b></b><span></span></div>
+          <div class="pine pine-two"><i></i><b></b><span></span></div>
+          <div class="pine pine-three"><i></i><b></b><span></span></div>
+          <div class="sleigh-trail" aria-hidden="true"></div>
+          <div class="sleigh" aria-hidden="true">
+            <span class="sleigh-spark">✦</span>
+            <span class="sleigh-reindeer">🦌</span>
+            <span class="sleigh-gift">🎁</span>
+            <span class="sleigh-body">🛷</span>
+            <span class="sleigh-santa">🎅</span>
+          </div>
+          <div class="art-caption"><span class="caption-dot"></span> Somewhere above the snowy pines</div>
+        </div>
+        <div class="hero-stamp" aria-hidden="true">
+          <span>MADE WITH</span>
+          <strong>♡</strong>
+          <span>AT THE POLE</span>
+        </div>
+      </section>
+
+      <section class="ticker" aria-label="Christmas greetings">
+        <div class="ticker-track">
+          <span>Good things are growing</span><i>✳</i><span>Kindness is always in season</span><i>✳</i>
+          <span>Make a little magic</span><i>✳</i><span>Good things are growing</span><i>✳</i>
+          <span>Kindness is always in season</span><i>✳</i><span>Make a little magic</span><i>✳</i>
+        </div>
+      </section>
+
+      <section class="magic section-wrap" id="magic">
+        <div class="section-heading">
+          <p class="eyebrow"><span class="eyebrow-line"></span> A world of its own</p>
+          <h2>There’s room for<br />a little <span>wonder.</span></h2>
+        </div>
+        <p class="section-intro">
+          The North Pole isn’t just a place on a map. It’s the feeling of giving,
+          the joy of imagining, and the lovely things we do for each other.
+        </p>
+        <div class="magic-grid" id="workshop">
+          <article class="magic-card card-workshop">
+            <div class="card-icon" aria-hidden="true">✳</div>
+            <p class="card-kicker">01 — Behind the doors</p>
+            <h3>The workshop</h3>
+            <p>Where clever elves turn bright ideas into the gifts that make eyes sparkle.</p>
+            <a href="#letter" class="card-link">Take a peek <span aria-hidden="true">↗</span></a>
+            <span class="card-decoration" aria-hidden="true">🎁</span>
+          </article>
+          <article class="magic-card card-reindeer">
+            <div class="card-icon" aria-hidden="true">✦</div>
+            <p class="card-kicker">02 — Up in the sky</p>
+            <h3>Reindeer flight school</h3>
+            <p>Hoofprints, high-fives, and the very important business of learning to fly.</p>
+            <a href="#letter" class="card-link">Meet the team <span aria-hidden="true">↗</span></a>
+            <span class="card-decoration" aria-hidden="true">🦌</span>
+          </article>
+          <article class="magic-card card-kindness">
+            <div class="card-icon" aria-hidden="true">♡</div>
+            <p class="card-kicker">03 — The best kind</p>
+            <h3>Everyday magic</h3>
+            <p>A small kindness can travel farther than Santa’s sleigh. Pass one along.</p>
+            <a href="#letter" class="card-link">Spread some cheer <span aria-hidden="true">↗</span></a>
+            <span class="card-decoration" aria-hidden="true">☃</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="letter-section" id="letter">
+        <div class="letter-snow" aria-hidden="true">✳ &nbsp; · &nbsp; ✧ &nbsp; · &nbsp; ✳</div>
+        <div class="letter-copy">
+          <p class="eyebrow eyebrow-light"><span class="eyebrow-line"></span> The North Pole post</p>
+          <h2>Every good story<br />starts with <span>“Dear Santa…”</span></h2>
+          <p>Got a wish, a thank-you, or a very important question? Santa loves getting mail.</p>
+          <div class="letter-note"><span aria-hidden="true">✉</span> Letters are always better with a little imagination.</div>
+        </div>
+        <form class="letter-form" id="letter-form">
+          <label for="letter-name">Your first name</label>
+          <input id="letter-name" name="name" type="text" placeholder="What should Santa call you?" maxlength="40" required />
+          <label for="letter-message">Your letter</label>
+          <textarea id="letter-message" name="message" rows="4" placeholder="Dear Santa…" maxlength="500" required></textarea>
+          <button class="button button-cream" type="submit">Send your letter <span aria-hidden="true">→</span></button>
+          <p class="form-note" id="form-note" aria-live="polite">A little note: this is a just-for-fun demo. Your letter stays right here.</p>
+        </form>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand footer-brand" href="#home">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span class="brand-copy">
+          <span class="brand-name">Santa's <em>North Pole</em></span>
+          <span class="brand-signature">Wellington Atera</span>
+        </span>
+      </a>
+      <p>Keep a little wonder close. <span aria-hidden="true">♡</span></p>
+      <a class="back-top" href="#home">Back to the top ↑</a>
+    </footer>
+  </body>
+</html>
