@@ -1,61 +1,180 @@
-const countdown = document.querySelector("#countdown");
-const dayMilliseconds = 86_400_000;
-
-function updateCountdown() {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const christmas = new Date(now.getFullYear(), 11, 25);
-  if (today > christmas) christmas.setFullYear(christmas.getFullYear() + 1);
-
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const christmasUtc = Date.UTC(christmas.getFullYear(), christmas.getMonth(), christmas.getDate());
-  countdown.textContent = (christmasUtc - todayUtc) / dayMilliseconds;
-}
-
-updateCountdown();
-window.setInterval(updateCountdown, 60_000);
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) updateCountdown();
-});
-
 const pinScreen = document.querySelector("#pin-screen");
 const pinDots = document.querySelector("#pin-dots");
 const pinFeedback = document.querySelector("#pin-feedback");
 const pinButtons = document.querySelector(".pin-keypad");
-const correctPin = "2345";
-let enteredPin = "";
+const releaseNote = document.querySelector("#release-note");
+const photoInput = document.querySelector("#photo-input");
+const photoError = document.querySelector("#photo-error");
+const previewImage = document.querySelector("#photo-preview");
+const cardPhoto = document.querySelector("#card-photo");
+const photoPlaceholder = document.querySelector("#photo-placeholder");
+const pickerIcon = document.querySelector("#photo-picker-icon");
+const pickerCopy = document.querySelector("#photo-picker-copy");
+const pickerSubtitle = document.querySelector("#photo-picker-subtitle");
+const message = document.querySelector("#birthday-message");
+const shareInput = document.querySelector("#share-link");
+const shareStatus = document.querySelector("#share-status");
 
-function renderPin() {
+const RELEASE_AT = Date.parse("2026-11-16T07:12:42Z");
+const CARD_PIN = "2206";
+const BIRTHDAY_MESSAGE = "Happy birthday, Mercy! Even with distance between us, I still carry so much gratitude for the memories, laughter, care, and beautiful moments we shared. What we had will always mean something to me, and I will always wish you joy, love, peace, and every good thing you deserve. May this new year bring you closer to all the dreams in your heart. Happy birthday, beautiful soul. — Atera";
+const PHOTO_DATABASE = "mercy-birthday-card";
+const PHOTO_STORE = "photos";
+const PHOTO_KEY = "mercy-photo";
+let releaseTimer = 0;
+
+function openPhotoDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("This browser cannot save photos between visits."));
+      return;
+    }
+
+    const request = window.indexedDB.open(PHOTO_DATABASE, 1);
+    request.addEventListener("upgradeneeded", () => {
+      request.result.createObjectStore(PHOTO_STORE);
+    });
+    request.addEventListener("success", () => resolve(request.result));
+    request.addEventListener("error", () => reject(request.error || new Error("The photo store could not be opened.")));
+  });
+}
+
+async function savePhoto(blob) {
+  const database = await openPhotoDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(PHOTO_STORE, "readwrite");
+    transaction.objectStore(PHOTO_STORE).put(blob, PHOTO_KEY);
+    transaction.addEventListener("complete", resolve, { once: true });
+    transaction.addEventListener("error", () => reject(transaction.error || new Error("The photo could not be saved.")), { once: true });
+    transaction.addEventListener("abort", () => reject(transaction.error || new Error("The photo save was canceled.")), { once: true });
+  });
+}
+
+async function loadPhoto() {
+  const database = await openPhotoDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(PHOTO_STORE, "readonly");
+    const request = transaction.objectStore(PHOTO_STORE).get(PHOTO_KEY);
+    request.addEventListener("success", () => resolve(request.result || null), { once: true });
+    request.addEventListener("error", () => reject(request.error || new Error("The saved photo could not be read.")), { once: true });
+  });
+}
+
+let displayedPhotoUrl = "";
+
+function setPhoto(blob) {
+  if (displayedPhotoUrl) URL.revokeObjectURL(displayedPhotoUrl);
+  displayedPhotoUrl = URL.createObjectURL(blob);
+  previewImage.src = displayedPhotoUrl;
+  previewImage.hidden = false;
+  cardPhoto.src = displayedPhotoUrl;
+  cardPhoto.hidden = false;
+  photoPlaceholder.hidden = true;
+  pickerIcon.textContent = "✓";
+  pickerCopy.textContent = "Change her photo";
+  pickerSubtitle.textContent = "Saved only in this browser on this device";
+}
+
+async function restorePhoto() {
+  try {
+    const savedPhoto = await loadPhoto();
+    if (savedPhoto instanceof Blob && savedPhoto.type.startsWith("image/")) {
+      setPhoto(savedPhoto);
+    }
+  } catch (error) {
+    photoError.textContent = error instanceof Error ? error.message : "The saved photo could not be restored.";
+  }
+}
+
+async function readPhoto(file) {
+  if (!file) return;
+  photoError.textContent = "";
+  if (!file.type.startsWith("image/")) {
+    photoError.textContent = "Please choose an image file.";
+    return;
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    photoError.textContent = "Choose a photo smaller than 12 MB.";
+    return;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 720 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not prepare the photo.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const compressedPhoto = await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("This browser could not prepare the photo."));
+      }, "image/jpeg", 0.84);
+    });
+
+    setPhoto(compressedPhoto);
+    try {
+      await savePhoto(compressedPhoto);
+    } catch (error) {
+      photoError.textContent = error instanceof Error
+        ? `${error.message} The photo will only remain until this page is closed.`
+        : "The photo could not be saved and will only remain until this page is closed.";
+      pickerSubtitle.textContent = "Not saved — only available until this page closes";
+    }
+  } catch (error) {
+    photoError.textContent = error instanceof Error ? error.message : "The selected photo could not be opened.";
+  }
+}
+
+photoInput.addEventListener("change", () => {
+  readPhoto(photoInput.files?.[0]);
+});
+restorePhoto();
+
+function renderPin(enteredPin) {
   [...pinDots.children].forEach((dot, index) => {
     dot.classList.toggle("is-filled", index < enteredPin.length);
   });
   pinDots.setAttribute("aria-label", `${enteredPin.length} of 4 digits entered`);
 }
 
-function enterPinDigit(digit) {
-  if (enteredPin.length >= 4) return;
-  enteredPin += digit;
-  pinFeedback.textContent = "Enter your four-digit passcode";
-  pinFeedback.classList.remove("is-error");
-  renderPin();
+let enteredPin = "";
+let isUnlocking = false;
 
-  if (enteredPin.length !== 4) return;
-  if (enteredPin === correctPin) {
-    pinScreen.classList.add("is-unlocking");
-    document.body.classList.remove("is-locked");
-    window.setTimeout(() => {
-      pinScreen.hidden = true;
-    }, 500);
+function unlockWithPin(pin, automatic = false) {
+  if (isUnlocking) return;
+  if (!automatic && pin !== CARD_PIN && Date.now() < RELEASE_AT) {
+    enteredPin = "";
+    pinFeedback.textContent = "That code didn't work. Try again.";
+    pinFeedback.classList.add("is-error");
+    pinScreen.classList.remove("is-shaking");
+    void pinScreen.offsetWidth;
+    pinScreen.classList.add("is-shaking");
+    renderPin(enteredPin);
     return;
   }
 
-  enteredPin = "";
-  pinFeedback.textContent = "That code didn't work. Try again.";
-  pinFeedback.classList.add("is-error");
-  pinScreen.classList.remove("is-shaking");
-  void pinScreen.offsetWidth;
-  pinScreen.classList.add("is-shaking");
-  renderPin();
+  isUnlocking = true;
+  message.textContent = BIRTHDAY_MESSAGE;
+  pinScreen.classList.add("is-unlocking");
+  document.body.classList.remove("is-locked");
+  window.setTimeout(() => {
+    pinScreen.hidden = true;
+    isUnlocking = false;
+  }, 550);
+}
+
+function enterPinDigit(digit) {
+  if (isUnlocking || enteredPin.length >= 4) return;
+  enteredPin += digit;
+  pinFeedback.textContent = "Enter your secret code";
+  pinFeedback.classList.remove("is-error");
+  renderPin(enteredPin);
+  if (enteredPin.length === 4) unlockWithPin(enteredPin);
 }
 
 pinButtons.addEventListener("click", (event) => {
@@ -66,153 +185,133 @@ pinButtons.addEventListener("click", (event) => {
     enterPinDigit(button.dataset.pinDigit);
   } else if (button.dataset.pinAction === "delete") {
     enteredPin = enteredPin.slice(0, -1);
-    pinFeedback.textContent = "Enter your four-digit passcode";
+    pinFeedback.textContent = "Enter your secret code";
     pinFeedback.classList.remove("is-error");
-    renderPin();
+    renderPin(enteredPin);
   } else if (button.dataset.pinAction === "clear") {
     enteredPin = "";
-    pinFeedback.textContent = "Enter your four-digit passcode";
+    pinFeedback.textContent = "Enter your secret code";
     pinFeedback.classList.remove("is-error");
-    renderPin();
+    renderPin(enteredPin);
   }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (pinScreen.hidden) return;
+  if (pinScreen.hidden || isUnlocking) return;
   if (/^\d$/.test(event.key)) enterPinDigit(event.key);
   if (event.key === "Backspace") {
     enteredPin = enteredPin.slice(0, -1);
-    pinFeedback.textContent = "Enter your four-digit passcode";
+    pinFeedback.textContent = "Enter your secret code";
     pinFeedback.classList.remove("is-error");
-    renderPin();
+    renderPin(enteredPin);
   }
   if (event.key === "Escape") {
     enteredPin = "";
-    pinFeedback.textContent = "Enter your four-digit passcode";
+    pinFeedback.textContent = "Enter your secret code";
     pinFeedback.classList.remove("is-error");
-    renderPin();
+    renderPin(enteredPin);
   }
 });
 
-const snowfallCanvas = document.querySelector("#snowfall");
-const snowContext = snowfallCanvas.getContext("2d");
-const snowflakes = Array.from({ length: 95 }, () => ({
-  x: Math.random(),
-  y: Math.random(),
-  radius: 0.8 + Math.random() * 2.2,
-  speed: 0.25 + Math.random() * 0.75,
-  drift: (Math.random() - 0.5) * 0.3,
-  opacity: 0.3 + Math.random() * 0.6,
-}));
-const iceCrystals = Array.from({ length: 16 }, () => ({
-  x: Math.random(),
-  y: Math.random(),
-  size: 5 + Math.random() * 8,
-  speed: 0.12 + Math.random() * 0.28,
-  drift: (Math.random() - 0.5) * 0.18,
-  rotation: Math.random() * Math.PI,
-  spin: (Math.random() - 0.5) * 0.012,
-  phase: Math.random() * Math.PI * 2,
-}));
-let snowWidth = 0;
-let snowHeight = 0;
+const releaseDate = new Date(RELEASE_AT);
+releaseNote.textContent = `If unopened, the note opens automatically on ${releaseDate.toLocaleDateString(undefined, {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+})}.`;
 
-function resizeSnowfall() {
+function releaseIfReady() {
+  if (pinScreen.hidden || isUnlocking) return;
+  if (Date.now() >= RELEASE_AT) unlockWithPin(null, true);
+}
+releaseIfReady();
+releaseTimer = window.setTimeout(releaseIfReady, Math.max(0, RELEASE_AT - Date.now()));
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) releaseIfReady();
+});
+
+const shareUrl = window.location.protocol === "http:" || window.location.protocol === "https:"
+  ? `${window.location.origin}${window.location.pathname}`
+  : "";
+const copyButton = document.querySelector("#copy-link");
+const whatsappShare = document.querySelector("#whatsapp-share");
+shareInput.value = shareUrl;
+
+if (shareUrl) {
+  whatsappShare.href = `https://wa.me/?text=${encodeURIComponent(`Birthday card for Mercy: ${shareUrl}`)}`;
+} else {
+  copyButton.disabled = true;
+  shareStatus.textContent = "Open this card from its GitHub Pages link to share it.";
+}
+
+document.querySelector("#copy-link").addEventListener("click", async () => {
+  if (!shareUrl) return;
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    shareStatus.textContent = "Link copied — choose where to share it.";
+  } catch {
+    shareInput.focus();
+    shareInput.select();
+    const copied = document.execCommand("copy");
+    shareStatus.textContent = copied
+      ? "Link copied — choose where to share it."
+      : "Select and copy the link above to share the card.";
+  }
+});
+
+const flowersCanvas = document.querySelector("#flower-canvas");
+const flowerContext = flowersCanvas.getContext("2d");
+const flowerEmojis = ["🌹", "🌷", "🌸", "🌺", "🌼", "💮", "💐"];
+const flowers = Array.from({ length: 26 }, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  size: 12 + Math.random() * 12,
+  speed: 0.18 + Math.random() * 0.55,
+  drift: (Math.random() - 0.5) * 0.28,
+  rotation: (Math.random() - 0.5) * 0.7,
+  spin: (Math.random() - 0.5) * 0.008,
+  emoji: flowerEmojis[Math.floor(Math.random() * flowerEmojis.length)],
+}));
+let canvasWidth = 0;
+let canvasHeight = 0;
+
+function resizeFlowers() {
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-  snowWidth = window.innerWidth;
-  snowHeight = window.innerHeight;
-  snowfallCanvas.width = Math.round(snowWidth * pixelRatio);
-  snowfallCanvas.height = Math.round(snowHeight * pixelRatio);
-  snowfallCanvas.style.width = `${snowWidth}px`;
-  snowfallCanvas.style.height = `${snowHeight}px`;
-  snowContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  canvasWidth = window.innerWidth;
+  canvasHeight = window.innerHeight;
+  flowersCanvas.width = Math.round(canvasWidth * pixelRatio);
+  flowersCanvas.height = Math.round(canvasHeight * pixelRatio);
+  flowerContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 }
 
-function animateSnowfall() {
-  snowContext.clearRect(0, 0, snowWidth, snowHeight);
-  snowflakes.forEach((flake) => {
-    flake.y += flake.speed / snowHeight;
-    flake.x += flake.drift / snowWidth;
-    if (flake.y > 1) {
-      flake.y = -0.02;
-      flake.x = Math.random();
+function animateFlowers() {
+  flowerContext.clearRect(0, 0, canvasWidth, canvasHeight);
+  flowers.forEach((flower) => {
+    flower.y += flower.speed / canvasHeight;
+    flower.x += flower.drift / canvasWidth;
+    flower.rotation += flower.spin;
+    if (flower.y > 1.08) {
+      flower.y = -0.08;
+      flower.x = Math.random();
     }
-    if (flake.x < 0) flake.x = 1;
-    if (flake.x > 1) flake.x = 0;
+    if (flower.x < -0.05) flower.x = 1.05;
+    if (flower.x > 1.05) flower.x = -0.05;
 
-    snowContext.beginPath();
-    snowContext.arc(flake.x * snowWidth, flake.y * snowHeight, flake.radius, 0, Math.PI * 2);
-    snowContext.fillStyle = `rgba(255, 255, 255, ${flake.opacity})`;
-    snowContext.fill();
+    flowerContext.save();
+    flowerContext.translate(flower.x * canvasWidth, flower.y * canvasHeight);
+    flowerContext.rotate(flower.rotation);
+    flowerContext.globalAlpha = 0.48;
+    flowerContext.font = `${flower.size}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    flowerContext.textAlign = "center";
+    flowerContext.textBaseline = "middle";
+    flowerContext.fillText(flower.emoji, 0, 0);
+    flowerContext.restore();
   });
-  iceCrystals.forEach((crystal) => {
-    crystal.y += crystal.speed / snowHeight;
-    crystal.x += crystal.drift / snowWidth;
-    crystal.rotation += crystal.spin;
-    crystal.phase += 0.035;
-    if (crystal.y > 1.03) {
-      crystal.y = -0.03;
-      crystal.x = Math.random();
-    }
-    if (crystal.x < -0.03) crystal.x = 1.03;
-    if (crystal.x > 1.03) crystal.x = -0.03;
-
-    const shimmer = 0.45 + (Math.sin(crystal.phase) + 1) * 0.25;
-    const x = crystal.x * snowWidth;
-    const y = crystal.y * snowHeight;
-    const arm = crystal.size;
-
-    snowContext.save();
-    snowContext.translate(x, y);
-    snowContext.rotate(crystal.rotation);
-    snowContext.globalAlpha = shimmer;
-    snowContext.shadowColor = "#c8f3ff";
-    snowContext.shadowBlur = crystal.size * 1.8;
-    snowContext.strokeStyle = "rgba(224, 248, 255, .95)";
-    snowContext.lineWidth = 1;
-    snowContext.lineCap = "round";
-    snowContext.beginPath();
-    snowContext.moveTo(0, -arm);
-    snowContext.lineTo(0, arm);
-    snowContext.moveTo(-arm, 0);
-    snowContext.lineTo(arm, 0);
-    snowContext.moveTo(-arm * 0.68, -arm * 0.68);
-    snowContext.lineTo(arm * 0.68, arm * 0.68);
-    snowContext.moveTo(arm * 0.68, -arm * 0.68);
-    snowContext.lineTo(-arm * 0.68, arm * 0.68);
-    snowContext.stroke();
-    snowContext.restore();
-  });
-  window.requestAnimationFrame(animateSnowfall);
-}
-
-window.addEventListener("resize", resizeSnowfall);
-resizeSnowfall();
-window.requestAnimationFrame(animateSnowfall);
-
-const menuToggle = document.querySelector(".menu-toggle");
-const siteNav = document.querySelector("#site-nav");
-
-menuToggle.addEventListener("click", () => {
-  const isExpanded = menuToggle.getAttribute("aria-expanded") === "true";
-  menuToggle.setAttribute("aria-expanded", String(!isExpanded));
-  siteNav.classList.toggle("is-open", !isExpanded);
-});
-
-siteNav.addEventListener("click", (event) => {
-  if (event.target.closest("a")) {
-    menuToggle.setAttribute("aria-expanded", "false");
-    siteNav.classList.remove("is-open");
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.requestAnimationFrame(animateFlowers);
   }
-});
+}
 
-const letterForm = document.querySelector("#letter-form");
-const formNote = document.querySelector("#form-note");
-
-letterForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const name = new FormData(letterForm).get("name").trim();
-  formNote.textContent = `Thanks, ${name}! Your letter is ready for Santa. This demo doesn't send or store it.`;
-  formNote.classList.add("is-success");
-  letterForm.reset();
-});
+window.addEventListener("resize", resizeFlowers);
+resizeFlowers();
+animateFlowers();
